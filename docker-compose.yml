@@ -4,5 +4,15 @@ services:
   web:
     image: tutum/hello-world
     ports:
-     - "80:80"
-
+     - "80"
+  db:
+    image: postgres:10.0-alpine
+    volumes:
+      - test-volume:/test-volume
+  etc:
+    image: busybox:latest
+    command: /bin/sh -c "watch grep http /tmp/hostetc/host.conf"
+    volumes:
+      - type: bind
+        source: /etc
+        target: /tmp/hostetc
