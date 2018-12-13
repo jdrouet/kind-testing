@@ -42,16 +42,14 @@ compose_on_kube_path="$GOPATH/src/github.com/docker/compose-on-kubernetes"
 
 ##
 
-# echo "🐳 compiling compose on kube installer"
-# current_path=$(pwd)
-
-# cd $compose_on_kube_path
-# make IMAGE_REPO_PREFIX=docker/kube-compose- bin/installer
-# cd $current_path
-
 if [ ! -f $compose_on_kube_path/bin/installer ]; then
-  echo "Compose installer not found..."
-  exit 1
+  echo "🐳 compiling compose on kube installer"
+  current_path=$(pwd)
+
+  cd $compose_on_kube_path
+  make IMAGE_REPO_PREFIX=docker/kube-compose- bin/installer
+
+  cd $current_path
 fi
 
 ##
