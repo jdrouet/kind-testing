@@ -19,5 +19,7 @@ COPY content /scripts
 
 WORKDIR /scripts
 
+ENV CLUSTER_NAME=testing
+ENV KUBE_VERSION=1.11.5
+
 ENTRYPOINT ["/scripts/install.sh"]
-CMD ["testing"]

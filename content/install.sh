@@ -39,7 +39,6 @@ function wait_for_everything_up {
 }
 
 compose_on_kube_path="$GOPATH/src/github.com/docker/compose-on-kubernetes"
-kind_cluster_name=$1
 
 ##
 
@@ -50,14 +49,21 @@ kind_cluster_name=$1
 # make IMAGE_REPO_PREFIX=docker/kube-compose- bin/installer
 # cd $current_path
 
+if [ ! -f $compose_on_kube_path/bin/installer ]; then
+  echo "Compose installer not found..."
+  exit 1
+fi
+
 ##
 
 echo "🐳 cleaning existing cluster"
-kind delete cluster --name=${kind_cluster_name}
+kind delete cluster --name=$CLUSTER_NAME
 
 echo "🐳 creating new cluster"
-kind create cluster --name=${kind_cluster_name}
-export KUBECONFIG="$(kind get kubeconfig-path --name="${kind_cluster_name}")"
+kind create cluster \
+  --name=$CLUSTER_NAME \
+  --image=jdrouet/kindest-node:$KUBE_VERSION
+export KUBECONFIG="$(kind get kubeconfig-path --name=$CLUSTER_NAME)"
 
 kubectl cluster-info
 
@@ -69,7 +75,7 @@ kubectl -n kube-system create clusterrolebinding tiller --clusterrole cluster-ad
 echo "🐳 starting helm"
 helm init --service-account tiller
 
-wait_for_pod_running "pod/etcd-kind-testing-control-plane"
+wait_for_pod_running "pod/etcd-kind-$CLUSTER_NAME-control-plane"
 wait_for_pod_running "pod/tiller-deploy"
 
 echo "🐳 starting etcd"
@@ -80,7 +86,7 @@ wait_for_pod_running "pod/my-etcd-operator-etcd-operator-etcd-operator"
 wait_for_pod_running "pod/my-etcd-operator-etcd-operator-etcd-restore-operator"
 
 echo "🐳 preparing storage"
-docker exec -it "kind-${kind_cluster_name}-control-plane" mkdir /tmp/storage
+docker exec -it "kind-$CLUSTER_NAME-control-plane" mkdir /tmp/storage
 
 kubectl delete storageclass standard
 kubectl apply -f hostpath-provisioner.yml
@@ -97,4 +103,4 @@ $compose_on_kube_path/bin/installer -etcd-servers=http://compose-etcd-client.def
 wait_for_pod_running "pod/compose-api"
 wait_for_everything_up
 
-echo "🐳 You should now run export KUBECONFIG=\"\$HOME/.kube/kind-config-${kind_cluster_name}\""
+echo "🐳 You should now run export KUBECONFIG=\"\$HOME/.kube/kind-config-$CLUSTER_NAME\""
