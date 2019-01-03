@@ -1,0 +1,184 @@
+version: 2
+jobs:
+  build-node-latest:
+    docker:
+      - image: golang:latest
+    working_directory: ~/code
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.07.0-ce
+      - run:
+          name: Install dependencies
+          command: apt-get update && apt install -y rsync
+      - run:
+          name: Pull kubernetes
+          command: git clone https://github.com/kubernetes/kubernetes /go/src/k8s.io/kubernetes
+      - run:
+          name: Install kind and docker
+          command: go get sigs.k8s.io/kind && go get github.com/docker/cli/cmd/docker
+      - run:
+          name: Build node image
+          command: kind build node-image --image jdrouet/kindest-node:latest --loglevel debug
+          no_output_timeout: 2400
+      - run:
+          name: Archive Docker image
+          command: docker save -o kindest-node-latest.tar jdrouet/kindest-node:latest
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./kindest-node-latest.tar
+
+  build-node-1.11.5:
+    docker:
+      - image: golang:latest
+    working_directory: ~/code
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.07.0-ce
+      - run:
+          name: Install dependencies
+          command: apt-get update && apt install -y rsync
+      - run:
+          name: Pull kubernetes
+          command: git clone https://github.com/kubernetes/kubernetes /go/src/k8s.io/kubernetes && cd /go/src/k8s.io/kubernetes && git checkout v1.11.5
+      - run:
+          name: Install kind and docker
+          command: go get sigs.k8s.io/kind && go get github.com/docker/cli/cmd/docker
+      - run:
+          name: Build node image
+          command: kind build node-image --image jdrouet/kindest-node:1.11.5 --loglevel debug
+          no_output_timeout: 2400
+      - run:
+          name: Archive Docker image
+          command: docker save -o kindest-node-1.11.5.tar jdrouet/kindest-node:1.11.5
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./kindest-node-1.11.5.tar
+
+  build-node-1.12.4:
+    docker:
+      - image: golang:latest
+    working_directory: ~/code
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.07.0-ce
+      - run:
+          name: Install dependencies
+          command: apt-get update && apt install -y rsync
+      - run:
+          name: Pull kubernetes
+          command: git clone https://github.com/kubernetes/kubernetes /go/src/k8s.io/kubernetes && cd /go/src/k8s.io/kubernetes && git checkout v1.12.4
+      - run:
+          name: Install kind and docker
+          command: go get sigs.k8s.io/kind && go get github.com/docker/cli/cmd/docker
+      - run:
+          name: Build node image
+          command: kind build node-image --image jdrouet/kindest-node:1.12.4 --loglevel debug
+          no_output_timeout: 2400
+      - run:
+          name: Archive Docker image
+          command: docker save -o kindest-node-1.12.4.tar jdrouet/kindest-node:1.12.4
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./kindest-node-1.12.4.tar
+
+  build-node-1.13.1:
+    docker:
+      - image: golang:latest
+    working_directory: ~/code
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.07.0-ce
+      - run:
+          name: Install dependencies
+          command: apt-get update && apt install -y rsync
+      - run:
+          name: Pull kubernetes
+          command: git clone https://github.com/kubernetes/kubernetes /go/src/k8s.io/kubernetes && cd /go/src/k8s.io/kubernetes && git checkout v1.13.1
+      - run:
+          name: Install kind and docker
+          command: go get sigs.k8s.io/kind && go get github.com/docker/cli/cmd/docker
+      - run:
+          name: Build node image
+          command: kind build node-image --image jdrouet/kindest-node:1.13.1 --loglevel debug
+          no_output_timeout: 2400
+      - run:
+          name: Archive Docker image
+          command: docker save -o kindest-node-1.13.1.tar jdrouet/kindest-node:1.13.1
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./kindest-node-1.13.1.tar
+  
+  build-helper:
+    docker:
+      - image: golang:latest
+    working_directory: ~/code
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.07.0-ce
+      - run:
+          name: Install docker
+          command: go get github.com/docker/cli/cmd/docker
+      - run:
+          name: Build node image
+          command: docker build helper --tag jdrouet/kind-helper:latest
+      - run:
+          name: Archive Docker image
+          command: docker save -o kind-helper-latest.tar jdrouet/kind-helper:latest
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./kind-helper-latest.tar
+  
+  publish-hub:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - setup_remote_docker
+      - run:
+          name: Load archived Docker image
+          command: |
+            docker load -i /tmp/workspace/kindest-node-latest.tar
+            docker load -i /tmp/workspace/kindest-node-1.11.5.tar
+            docker load -i /tmp/workspace/kindest-node-1.12.4.tar
+            docker load -i /tmp/workspace/kindest-node-1.13.1.tar
+            docker load -i /tmp/workspace/kind-helper-latest.tar
+      - run:
+          name: Publish Docker Image to Docker Hub
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            docker push jdrouet/kindest-node:latest
+            docker push jdrouet/kindest-node:1.11.5
+            docker push jdrouet/kindest-node:1.12.4
+            docker push jdrouet/kindest-node:1.13.1
+            docker push jdrouet/kind-helper:latest
+
+workflows:
+  version: 2
+  build-and-publish:
+    jobs:
+      - build-node-latest
+      - build-node-1.11.5
+      - build-node-1.12.4
+      - build-node-1.13.1
+      - build-helper
+      - publish-hub:
+          requires:
+            - build-node-latest
+            - build-node-1.11.5
+            - build-node-1.12.4
+            - build-node-1.13.1
+            - build-helper
+          filters:
+            branches:
+              only: master

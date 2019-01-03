@@ -71,17 +71,10 @@ kubectl -n kube-system create serviceaccount tiller
 kubectl -n kube-system create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount kube-system:tiller
 
 echo "🐳 starting helm"
-helm init --service-account tiller
-
-wait_for_pod_running "pod/etcd-kind-$CLUSTER_NAME-control-plane"
-wait_for_pod_running "pod/tiller-deploy"
+helm init --wait --service-account tiller
 
 echo "🐳 starting etcd"
-helm install --name my-etcd-operator stable/etcd-operator
-
-wait_for_pod_running "pod/my-etcd-operator-etcd-operator-etcd-backup-operator"
-wait_for_pod_running "pod/my-etcd-operator-etcd-operator-etcd-operator"
-wait_for_pod_running "pod/my-etcd-operator-etcd-operator-etcd-restore-operator"
+helm install --wait --name my-etcd-operator stable/etcd-operator
 
 echo "🐳 preparing storage"
 docker exec -it "kind-$CLUSTER_NAME-control-plane" mkdir /tmp/storage
@@ -100,5 +93,7 @@ $compose_on_kube_path/bin/installer -etcd-servers=http://compose-etcd-client.def
 
 wait_for_pod_running "pod/compose-api"
 wait_for_everything_up
+
+echo "🐳 kubeconfig $(kind get kubeconfig-path --name=$CLUSTER_NAME)"
 
 echo "🐳 You should now run export KUBECONFIG=\"\$HOME/.kube/kind-config-$CLUSTER_NAME\""
